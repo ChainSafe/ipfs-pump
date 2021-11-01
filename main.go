@@ -30,6 +30,7 @@ const (
 	DrainFlatFS = "flatfs"
 	DrainBadger = "badger"
 	DrainS3     = "s3"
+	DrainPin    = "pin"
 )
 
 var (
@@ -41,7 +42,7 @@ var (
 	collArg    = kingpin.Arg("coll", "The source to get the data blocks. "+
 		"Possible values are ["+strings.Join(collValues, ",")+"].").
 		Required().Enum(collValues...)
-	drainValues = []string{DrainAPI, DrainFlatFS, DrainBadger, DrainS3}
+	drainValues = []string{DrainAPI, DrainPin, DrainFlatFS, DrainBadger, DrainS3}
 	drainArg    = kingpin.Arg("drain", "The destination to copy to. "+
 		"Possible values are ["+strings.Join(drainValues, ",")+"].").
 		Required().Enum(drainValues...)
@@ -104,6 +105,9 @@ var (
 
 	drainBadgerPath    = kingpin.Flag("drain-badger-path", "Drain "+DrainBadger+": Path")
 	drainBadgerPathVal = drainBadgerPath.String()
+
+	drainPinAPIURL    = kingpin.Flag("drain-pin-url", "Drain "+DrainPin+": API URL")
+	drainPinAPIURLVal = drainPinAPIURL.String()
 
 	drainS3Region          = kingpin.Flag("drain-s3-region", "Drain "+EnumS3+": Region")
 	drainS3RegionVal       = drainS3Region.String()
@@ -195,6 +199,9 @@ func main() {
 	case DrainAPI:
 		requiredFlag(drainAPIURL, *drainAPIURLVal)
 		drain = pump.NewAPIDrain(*drainAPIURLVal)
+	case DrainPin:
+		requiredFlag(drainPinAPIURL, *drainPinAPIURLVal)
+		drain, err = pump.NewPinDrain(*drainPinAPIURLVal)
 	case DrainFlatFS:
 		requiredFlag(drainFlatFSPath, *drainFlatFSPathVal)
 		drain, err = pump.NewFlatFSDrain(*drainFlatFSPathVal)
