@@ -3,6 +3,8 @@ package pump
 import (
 	"fmt"
 
+	"github.com/ipfs/interface-go-ipfs-core/path"
+
 	cid "github.com/ipfs/go-cid"
 	shell "github.com/ipfs/go-ipfs-api"
 	mh "github.com/multiformats/go-multihash"
@@ -27,6 +29,12 @@ func NewAPIDrainWithShell(shell *shell.Shell) *APIDrain {
 }
 
 func (a *APIDrain) Drain(block Block) error {
+	_, err := a.s.BlockGet(path.IpfsPath(block.CID).String())
+	if err == nil {
+		// Block was already migrated
+		return nil
+	}
+
 	cidPref := block.CID.Prefix()
 	blockPutCidRaw, err := a.s.BlockPut(block.Data, cid.CodecToStr[cidPref.Codec], mh.Codes[cidPref.MhType], cidPref.MhLength)
 	if err != nil {

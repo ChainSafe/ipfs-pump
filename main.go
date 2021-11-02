@@ -106,8 +106,10 @@ var (
 	drainBadgerPath    = kingpin.Flag("drain-badger-path", "Drain "+DrainBadger+": Path")
 	drainBadgerPathVal = drainBadgerPath.String()
 
-	drainPinAPIURL    = kingpin.Flag("drain-pin-url", "Drain "+DrainPin+": API URL")
-	drainPinAPIURLVal = drainPinAPIURL.String()
+	drainPinAPIURL      = kingpin.Flag("drain-pin-url", "Drain "+DrainPin+": API URL")
+	drainPinAPIURLVal   = drainPinAPIURL.String()
+	drainCheckAPIURL    = kingpin.Flag("drain-check-url", "Drain "+DrainPin+": API URL")
+	drainCheckAPIURLVal = drainCheckAPIURL.String()
 
 	drainS3Region          = kingpin.Flag("drain-s3-region", "Drain "+EnumS3+": Region")
 	drainS3RegionVal       = drainS3Region.String()
@@ -201,7 +203,8 @@ func main() {
 		drain = pump.NewAPIDrain(*drainAPIURLVal)
 	case DrainPin:
 		requiredFlag(drainPinAPIURL, *drainPinAPIURLVal)
-		drain, err = pump.NewPinDrain(*drainPinAPIURLVal)
+		requiredFlag(drainCheckAPIURL, *drainCheckAPIURLVal)
+		drain, err = pump.NewPinDrain(*drainPinAPIURLVal, *drainCheckAPIURLVal)
 	case DrainFlatFS:
 		requiredFlag(drainFlatFSPath, *drainFlatFSPathVal)
 		drain, err = pump.NewFlatFSDrain(*drainFlatFSPathVal)
