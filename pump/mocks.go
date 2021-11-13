@@ -7,6 +7,9 @@ import (
 	"sync"
 	"sync/atomic"
 
+	ds "github.com/ipfs/go-datastore"
+	dshelp "github.com/ipfs/go-ipfs-ds-help"
+
 	cid "github.com/ipfs/go-cid"
 )
 
@@ -28,7 +31,7 @@ func (m *MockEnumerator) TotalCount() int {
 	return m.count
 }
 
-func (m *MockEnumerator) CIDs(out chan<- BlockInfo) error {
+func (m *MockEnumerator) Keys(out chan<- BlockInfo) error {
 	i := m.count
 
 	go func() {
@@ -50,7 +53,7 @@ func (m *MockEnumerator) CIDs(out chan<- BlockInfo) error {
 			m.blocks.Store(c.String(), data)
 
 			out <- BlockInfo{
-				CID: c,
+				Key: dshelp.NewKeyFromBinary(c.Bytes()),
 			}
 		}
 	}()
@@ -69,14 +72,14 @@ func NewMockCollector(source *sync.Map) *MockCollector {
 func (m *MockCollector) Blocks(in <-chan BlockInfo, out chan<- Block) error {
 	go func() {
 		for info := range in {
-			data, ok := m.source.Load(info.CID.String())
+			data, ok := m.source.Load(info.Key.String())
 			if !ok {
-				out <- Block{CID: info.CID, Error: fmt.Errorf("unknown block")}
+				out <- Block{Key: info.Key, Error: fmt.Errorf("unknown block")}
 				continue
 			}
 
 			out <- Block{
-				CID:  info.CID,
+				Key:  info.Key,
 				Data: data.([]byte),
 			}
 		}
@@ -135,7 +138,13 @@ func newMockCidPrefDrain(expCidPref cid.Prefix) *mockCidPrefDrain {
 func (m *mockCidPrefDrain) Drain(block Block) error {
 	atomic.AddUint64(&m.Drained, 1)
 
-	cidPref := block.CID.Prefix()
+	plainKey := ds.NewKey(block.Key.BaseNamespace())
+	blockCID, err := dshelp.DsKeyToCidV1(plainKey, cid.DagProtobuf)
+	if err != nil {
+		return fmt.Errorf("error reconstructing cid from the key %s: %w", plainKey, err)
+	}
+
+	cidPref := blockCID.Prefix()
 
 	if cidPref.Codec != m.expCidPref.Codec {
 		return fmt.Errorf("expected codec %v, got %v", m.expCidPref.Codec, cidPref.Codec)

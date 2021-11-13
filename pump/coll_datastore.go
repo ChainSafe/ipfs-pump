@@ -2,7 +2,6 @@ package pump
 
 import (
 	ds "github.com/ipfs/go-datastore"
-	"github.com/ipfs/go-ipfs-ds-help"
 	"github.com/pkg/errors"
 )
 
@@ -19,15 +18,14 @@ func NewDatastoreCollector(dstore ds.Datastore) *DatastoreCollector {
 func (d *DatastoreCollector) Blocks(in <-chan BlockInfo, out chan<- Block) error {
 	go func() {
 		for info := range in {
-			key := dshelp.CidToDsKey(info.CID)
-			data, err := d.dstore.Get(key)
+			data, err := d.dstore.Get(info.Key)
 			if err != nil {
-				out <- Block{CID: info.CID, Error: errors.Wrap(err, "datastore collector")}
+				out <- Block{Key: info.Key, Error: errors.Wrap(err, "datastore collector")}
 				continue
 			}
 
 			out <- Block{
-				CID:  info.CID,
+				Key:  info.Key,
 				Data: data,
 			}
 		}

@@ -5,7 +5,6 @@ import (
 
 	ds "github.com/ipfs/go-datastore"
 	dsq "github.com/ipfs/go-datastore/query"
-	dshelp "github.com/ipfs/go-ipfs-ds-help"
 	"github.com/pkg/errors"
 )
 
@@ -23,7 +22,7 @@ func (*DatastoreEnumerator) TotalCount() int {
 	return -1
 }
 
-func (d *DatastoreEnumerator) CIDs(out chan<- BlockInfo) error {
+func (d *DatastoreEnumerator) Keys(out chan<- BlockInfo) error {
 	// based on https://github.com/ipfs/go-ipfs-blockstore/blob/master/blockstore.go
 
 	// KeysOnly, because that would be _a lot_ of data.
@@ -49,14 +48,8 @@ func (d *DatastoreEnumerator) CIDs(out chan<- BlockInfo) error {
 				return
 			}
 
-			c, err := dshelp.DsKeyToCid(ds.RawKey(e.Key))
-			if err != nil {
-				out <- BlockInfo{Error: errors.Wrap(err, "error converting raw key")}
-				continue
-			}
-
 			out <- BlockInfo{
-				CID: c,
+				Key: ds.RawKey(e.Key),
 			}
 		}
 	}()

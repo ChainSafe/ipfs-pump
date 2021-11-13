@@ -25,14 +25,14 @@ func (a *APICollector) Blocks(in <-chan BlockInfo, out chan<- Block) error {
 
 	go func() {
 		for info := range in {
-			data, err := s.BlockGet(info.CID.String())
+			data, err := s.BlockGet(info.Key.String())
 			if err != nil {
-				out <- Block{CID: info.CID, Error: err}
+				out <- Block{Key: info.Key, Error: err}
 				continue
 			}
 
 			out <- Block{
-				CID:  info.CID,
+				Key:  info.Key,
 				Data: data,
 			}
 		}

@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ipfs/go-cid"
+	ds "github.com/ipfs/go-datastore"
 )
 
 type FailedBlocksWriter interface {
-	Write(c cid.Cid) (int, error)
+	Write(c ds.Key) (int, error)
 	Flush() error
 	Count() uint
 }
@@ -40,9 +40,9 @@ func NewFileEnumeratorWriter(path string) (enumWriter FailedBlocksWriter, close 
 	}, fo.Close, nil
 }
 
-func (f *FileEnumeratorWriter) Write(c cid.Cid) (int, error) {
+func (f *FileEnumeratorWriter) Write(key ds.Key) (int, error) {
 	f.count++
-	return f.file.WriteString(fmt.Sprintf("%v\n", c.String()))
+	return f.file.WriteString(fmt.Sprintf("%v\n", key.String()))
 }
 
 func (f *FileEnumeratorWriter) Flush() error {
@@ -57,7 +57,7 @@ func NewNullableFileEnumeratorWriter() FailedBlocksWriter {
 	return &NullableFileEnumeratorWriter{}
 }
 
-func (f *NullableFileEnumeratorWriter) Write(c cid.Cid) (int, error) {
+func (f *NullableFileEnumeratorWriter) Write(_ ds.Key) (int, error) {
 	f.count++
 	return 0, nil
 }

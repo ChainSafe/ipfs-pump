@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 	"os"
+	"runtime"
+	"runtime/pprof"
 	"strings"
 
 	"github.com/INFURA/ipfs-pump/pump"
@@ -11,44 +13,53 @@ import (
 )
 
 const (
-	EnumFile   = "file"
-	EnumAPIPin = "apipin"
-	EnumFlatFS = "flatfs"
-	EnumBadger = "badger"
-	EnumS3     = "s3"
+	EnumFile      = "file"
+	EnumAPIPin    = "apipin"
+	EnumFlatFS    = "flatfs"
+	EnumBadger    = "badger"
+	EnumBadgerPin = "badgerpin"
+	EnumS3        = "s3"
 )
 
 const (
-	CollAPI    = "api"
-	CollFlatFS = "flatfs"
-	CollBadger = "badger"
-	CollS3     = "s3"
+	CollAPI       = "api"
+	CollFlatFS    = "flatfs"
+	CollBadger    = "badger"
+	CollBadgerPin = "badgerpin"
+	CollS3        = "s3"
 )
 
 const (
-	DrainAPI    = "api"
-	DrainFlatFS = "flatfs"
-	DrainBadger = "badger"
-	DrainS3     = "s3"
-	DrainPin    = "pin"
+	DrainAPI     = "api"
+	DrainFlatFS  = "flatfs"
+	DrainPin     = "pin"
+	DrainBadger  = "badger"
+	DrainS3      = "s3"
+	DrainCollect = "col"
 )
 
 var (
-	enumValues = []string{EnumFile, EnumAPIPin, EnumFlatFS, EnumBadger, EnumS3}
+	enumValues = []string{EnumFile, EnumAPIPin, EnumFlatFS, EnumBadger, EnumBadgerPin, EnumS3}
 	enumArg    = kingpin.Arg("enum", "The source to enumerate the content. "+
 		"Possible values are ["+strings.Join(enumValues, ",")+"].").
 		Required().Enum(enumValues...)
-	collValues = []string{CollAPI, CollFlatFS, CollBadger, CollS3}
+	collValues = []string{CollAPI, CollFlatFS, CollBadger, CollBadgerPin, CollS3}
 	collArg    = kingpin.Arg("coll", "The source to get the data blocks. "+
 		"Possible values are ["+strings.Join(collValues, ",")+"].").
 		Required().Enum(collValues...)
-	drainValues = []string{DrainAPI, DrainPin, DrainFlatFS, DrainBadger, DrainS3}
+	drainValues = []string{DrainAPI, DrainCollect, DrainFlatFS, DrainBadger, DrainCollect, DrainS3}
 	drainArg    = kingpin.Arg("drain", "The destination to copy to. "+
 		"Possible values are ["+strings.Join(drainValues, ",")+"].").
 		Required().Enum(drainValues...)
 
 	worker = kingpin.Flag("worker", "The number of concurrent worker to retrieve/push content").
 		Default("1").Uint()
+
+	// pprof file paths
+	pprofRamPath = kingpin.Flag("pprof-ram-path", "File path to RAM profiling data").
+			Default("").String()
+	pprofCpuPath = kingpin.Flag("pprof-cpu-path", "File path to CPU profiling data").
+			Default("").String()
 
 	failedBlocksPath = kingpin.Flag("failed-blocks-path", "The path to a file where all the failed CIDs should be written").Default("").String()
 
@@ -65,6 +76,9 @@ var (
 
 	enumBadgerPath    = kingpin.Flag("enum-badger-path", "Enumerator "+EnumBadger+": Path")
 	enumBadgerPathVal = enumBadgerPath.String()
+
+	enumBadgerPinPath    = kingpin.Flag("enum-badger-pin-path", "Enumerator "+EnumBadgerPin+": Path")
+	enumBadgerPinPathVal = enumBadgerPinPath.String()
 
 	enumS3Region          = kingpin.Flag("enum-s3-region", "Enumerator "+EnumS3+": Region")
 	enumS3RegionVal       = enumS3Region.String()
@@ -86,6 +100,9 @@ var (
 	collBadgerPath    = kingpin.Flag("coll-badger-path", "Collector "+CollBadger+": Path")
 	collBadgerPathVal = collBadgerPath.String()
 
+	collBadgerPinPath    = kingpin.Flag("coll-badger-pin-path", "Collector "+CollBadgerPin+": Path")
+	collBadgerPinPathVal = collBadgerPinPath.String()
+
 	collS3Region          = kingpin.Flag("coll-s3-region", "Collector "+EnumS3+": Region")
 	collS3RegionVal       = collS3Region.String()
 	collS3Bucket          = kingpin.Flag("coll-s3-bucket", "Collector "+CollS3+": Bucket name")
@@ -106,10 +123,8 @@ var (
 	drainBadgerPath    = kingpin.Flag("drain-badger-path", "Drain "+DrainBadger+": Path")
 	drainBadgerPathVal = drainBadgerPath.String()
 
-	drainPinAPIURL      = kingpin.Flag("drain-pin-url", "Drain "+DrainPin+": API URL")
-	drainPinAPIURLVal   = drainPinAPIURL.String()
-	drainCheckAPIURL    = kingpin.Flag("drain-check-url", "Drain "+DrainPin+": API URL")
-	drainCheckAPIURLVal = drainCheckAPIURL.String()
+	drainPinAPIURL    = kingpin.Flag("drain-pin-url", "Drain "+DrainPin+": API URL")
+	drainPinAPIURLVal = drainPinAPIURL.String()
 
 	drainS3Region          = kingpin.Flag("drain-s3-region", "Drain "+EnumS3+": Region")
 	drainS3RegionVal       = drainS3Region.String()
@@ -125,6 +140,31 @@ var (
 
 func main() {
 	kingpin.Parse()
+
+	if len(*pprofCpuPath) != 0 {
+		f, err := os.Create(*pprofCpuPath)
+		if err != nil {
+			log.Fatal("could not create CPU profile: ", err)
+		}
+		defer f.Close() // error handling omitted for example
+		if err := pprof.StartCPUProfile(f); err != nil {
+			log.Fatal("could not start CPU profile: ", err)
+		}
+		defer pprof.StopCPUProfile()
+
+		fgr, err := os.Create(*pprofCpuPath + ".goroutines")
+		if err != nil {
+			log.Fatal("could not create CPU profile: ", err)
+		}
+		defer fgr.Close() // error handling omitted for example
+
+		grProf := pprof.Lookup("goroutine")
+		if grProf != nil {
+			if err := grProf.WriteTo(fgr, 0); err != nil {
+				log.Fatal("could not start goroutines profile: ", err)
+			}
+		}
+	}
 
 	var enumerator pump.Enumerator
 	var collector pump.Collector
@@ -149,6 +189,9 @@ func main() {
 	case EnumBadger:
 		requiredFlag(enumBadgerPath, *enumBadgerPathVal)
 		enumerator, err = pump.NewBadgerEnumerator(*enumBadgerPathVal)
+	case EnumBadgerPin:
+		requiredFlag(enumBadgerPinPath, *enumBadgerPinPathVal)
+		enumerator, err = pump.NewBadgerPinEnumerator(*enumBadgerPinPathVal)
 	case EnumS3:
 		requiredFlag(enumS3Region, *enumS3RegionVal)
 		requiredFlag(enumS3Bucket, *enumS3BucketVal)
@@ -178,6 +221,9 @@ func main() {
 	case CollBadger:
 		requiredFlag(collBadgerPath, *collBadgerPathVal)
 		collector, err = pump.NewBadgerCollector(*collBadgerPathVal)
+	case CollBadgerPin:
+		requiredFlag(collBadgerPinPath, *collBadgerPinPathVal)
+		collector, err = pump.NewBadgerPinCollector(*collBadgerPinPathVal)
 	case CollS3:
 		requiredFlag(collS3Region, *collS3RegionVal)
 		requiredFlag(collS3Bucket, *collS3BucketVal)
@@ -201,16 +247,17 @@ func main() {
 	case DrainAPI:
 		requiredFlag(drainAPIURL, *drainAPIURLVal)
 		drain = pump.NewAPIDrain(*drainAPIURLVal)
-	case DrainPin:
-		requiredFlag(drainPinAPIURL, *drainPinAPIURLVal)
-		requiredFlag(drainCheckAPIURL, *drainCheckAPIURLVal)
-		drain, err = pump.NewPinDrain(*drainPinAPIURLVal, *drainCheckAPIURLVal)
+	case DrainCollect:
+		drain, err = pump.NewFailDrainer()
 	case DrainFlatFS:
 		requiredFlag(drainFlatFSPath, *drainFlatFSPathVal)
 		drain, err = pump.NewFlatFSDrain(*drainFlatFSPathVal)
 	case DrainBadger:
 		requiredFlag(drainBadgerPath, *drainBadgerPathVal)
 		drain, err = pump.NewBadgerDrain(*drainBadgerPathVal)
+	case DrainPin:
+		requiredFlag(drainPinAPIURL, *drainPinAPIURLVal)
+		drain, err = pump.NewPinDrain(*drainPinAPIURLVal)
 	case DrainS3:
 		requiredFlag(drainS3Region, *drainS3RegionVal)
 		requiredFlag(drainS3Bucket, *drainS3BucketVal)
@@ -251,6 +298,18 @@ func main() {
 	}
 
 	pump.PumpIt(enumerator, collector, drain, failedBlocksWriter, progressWriter, *worker)
+
+	if *pprofRamPath != "" {
+		f, err := os.Create(*pprofRamPath)
+		if err != nil {
+			log.Fatal("could not create memory profile: ", err)
+		}
+		defer f.Close() // error handling omitted for example
+		runtime.GC()    // get up-to-date statistics
+		if err := pprof.WriteHeapProfile(f); err != nil {
+			log.Fatal("could not write memory profile: ", err)
+		}
+	}
 }
 
 func requiredFlag(flag *kingpin.FlagClause, val string) {

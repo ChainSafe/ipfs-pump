@@ -5,7 +5,8 @@ import (
 	"log"
 	"sync"
 
-	"github.com/ipfs/go-cid"
+	ds "github.com/ipfs/go-datastore"
+
 	"github.com/pkg/errors"
 )
 
@@ -17,10 +18,10 @@ func PumpIt(enumerator Enumerator, collector Collector, drain Drain, failedBlock
 	infoIn := make(chan BlockInfo, 500000)
 	infoOut := make(chan BlockInfo)
 	blocks := make(chan Block)
-	failedBlocks := make(chan cid.Cid)
+	failedBlocks := make(chan ds.Key)
 
 	// Single worker for the enumerator
-	err := enumerator.CIDs(infoIn)
+	err := enumerator.Keys(infoIn)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -36,7 +37,7 @@ func PumpIt(enumerator Enumerator, collector Collector, drain Drain, failedBlock
 				continue
 			}
 
-			progressWriter.Prefix(info.CID.String())
+			progressWriter.Prefix(info.Key.String())
 			infoOut <- info
 		}
 		progressWriter.Finish()
@@ -80,15 +81,15 @@ func PumpIt(enumerator Enumerator, collector Collector, drain Drain, failedBlock
 		go func() {
 			for block := range blocks {
 				if block.Error != nil {
-					log.Println(errors.Wrapf(block.Error, "error retrieving block %s", block.CID.String()))
-					failedBlocks <- block.CID
+					log.Println(errors.Wrapf(block.Error, "error retrieving block %s", block.Key.String()))
+					failedBlocks <- block.Key
 					continue
 				}
 
 				err = drain.Drain(block)
 				if err != nil {
-					log.Println(errors.Wrapf(err, "failed to push block %s", block.CID.String()))
-					failedBlocks <- block.CID
+					log.Println(errors.Wrapf(err, "failed to push block %s", block.Key.String()))
+					failedBlocks <- block.Key
 					continue
 				}
 			}

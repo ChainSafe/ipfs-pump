@@ -6,6 +6,8 @@ import (
 	"io"
 	"strings"
 
+	dshelp "github.com/ipfs/go-ipfs-ds-help"
+
 	"github.com/ipfs/go-cid"
 	"github.com/pkg/errors"
 )
@@ -42,7 +44,7 @@ func (f *FileEnumerator) TotalCount() int {
 	return f.count
 }
 
-func (f *FileEnumerator) CIDs(out chan<- BlockInfo) error {
+func (f *FileEnumerator) Keys(out chan<- BlockInfo) error {
 	go func() {
 		defer func() {
 			if closer, ok := f.file.(io.Closer); ok {
@@ -67,7 +69,7 @@ func (f *FileEnumerator) CIDs(out chan<- BlockInfo) error {
 			}
 
 			out <- BlockInfo{
-				CID: c,
+				Key: dshelp.NewKeyFromBinary(c.Bytes()),
 			}
 		}
 	}()

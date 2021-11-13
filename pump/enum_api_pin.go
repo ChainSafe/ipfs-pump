@@ -3,6 +3,8 @@ package pump
 import (
 	"context"
 
+	dshelp "github.com/ipfs/go-ipfs-ds-help"
+
 	"github.com/ipfs/go-cid"
 	shell "github.com/ipfs/go-ipfs-api"
 )
@@ -27,7 +29,7 @@ func (a *APIPinEnumerator) TotalCount() int {
 	return a.totalCount
 }
 
-func (a *APIPinEnumerator) CIDs(out chan<- BlockInfo) error {
+func (a *APIPinEnumerator) Keys(out chan<- BlockInfo) error {
 	if a.stream {
 		return a.streamCIDs(out)
 	} else {
@@ -56,7 +58,7 @@ func (a *APIPinEnumerator) directCIDs(out chan<- BlockInfo) error {
 				continue
 			}
 
-			out <- BlockInfo{CID: c}
+			out <- BlockInfo{Key: dshelp.NewKeyFromBinary(c.Bytes())}
 		}
 		close(out)
 	}()
@@ -84,7 +86,7 @@ func (a *APIPinEnumerator) streamCIDs(out chan<- BlockInfo) error {
 				continue
 			}
 
-			out <- BlockInfo{CID: c}
+			out <- BlockInfo{Key: dshelp.NewKeyFromBinary(c.Bytes())}
 			a.totalCount++
 		}
 		close(out)

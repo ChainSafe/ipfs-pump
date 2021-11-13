@@ -2,7 +2,6 @@ package pump
 
 import (
 	ds "github.com/ipfs/go-datastore"
-	"github.com/ipfs/go-ipfs-ds-help"
 	"github.com/pkg/errors"
 )
 
@@ -17,8 +16,7 @@ func NewDatastoreDrain(dstore ds.Datastore) *DatastoreDrain {
 }
 
 func (d *DatastoreDrain) Drain(block Block) error {
-	key := dshelp.CidToDsKey(block.CID)
-	err := d.dstore.Put(key, block.Data)
+	err := d.dstore.Put(block.Key, block.Data)
 	if err != nil {
 		return errors.Wrap(err, "datastore drain")
 	}

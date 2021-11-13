@@ -6,7 +6,9 @@ import (
 )
 
 func NewBadgerCollector(path string) (*DatastoreCollector, error) {
-	ds, err := badger.NewDatastore(path, nil)
+	opts := badger.DefaultOptions
+	opts.Options.ReadOnly = true
+	ds, err := badger.NewDatastore(path, &opts)
 	if err != nil {
 		return nil, errors.Wrap(err, "Badger collector")
 	}

@@ -9,11 +9,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-type badgerEnum struct {
+type badgerPinEnum struct {
 	dstore ds.Datastore
 }
 
-func NewBadgerEnumerator(path string) (Enumerator, error) {
+func NewBadgerPinEnumerator(path string) (Enumerator, error) {
 	opts := badger.DefaultOptions
 	opts.Options.ReadOnly = true
 	ds, err := badger.NewDatastore(path, &opts)
@@ -21,18 +21,18 @@ func NewBadgerEnumerator(path string) (Enumerator, error) {
 		return nil, errors.Wrap(err, "Badger enumerator")
 	}
 
-	return &badgerEnum{ds}, nil
+	return &badgerPinEnum{ds}, nil
 }
 
-func (*badgerEnum) TotalCount() int {
+func (*badgerPinEnum) TotalCount() int {
 	return -1
 }
 
-func (d *badgerEnum) Keys(out chan<- BlockInfo) error {
+func (d *badgerPinEnum) Keys(out chan<- BlockInfo) error {
 	// based on https://github.com/ipfs/go-ipfs-blockstore/blob/master/blockstore.go
 
-	// KeysOnly, because that would be _a lot_ of data.
-	q := dsq.Query{Prefix: "/blocks", KeysOnly: true}
+	// KeysOnly, because that would be _a lot_ of data. Prefix: "/pins",
+	q := dsq.Query{Prefix: "/pins/index/cidRindex", KeysOnly: true}
 	res, err := d.dstore.Query(q)
 	if err != nil {
 		return errors.Wrap(err, "datastore enumerator")
@@ -55,7 +55,8 @@ func (d *badgerEnum) Keys(out chan<- BlockInfo) error {
 			}
 
 			out <- BlockInfo{
-				Key: ds.RawKey(e.Key),
+				Key:   ds.RawKey(e.Key),
+				Entry: e.Entry,
 			}
 		}
 	}()

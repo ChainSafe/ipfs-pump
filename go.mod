@@ -9,7 +9,8 @@ require (
 	github.com/ipfs/go-ds-flatfs v0.4.5
 	github.com/ipfs/go-ds-s3 v0.7.0
 	github.com/ipfs/go-ipfs-api v0.2.0
-	github.com/ipfs/go-ipfs-ds-help v0.1.1
+	github.com/ipfs/go-ipfs-blockstore v1.0.4 // indirect
+	github.com/ipfs/go-ipfs-ds-help v1.0.0
 	github.com/ipfs/go-ipfs-http-client v0.1.0
 	github.com/ipfs/interface-go-ipfs-core v0.4.0
 	github.com/multiformats/go-multiaddr v0.3.1
