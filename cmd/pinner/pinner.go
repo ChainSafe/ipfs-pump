@@ -43,13 +43,13 @@ func main() {
 		log.Fatal(fmt.Errorf("error opening ds keys file: %w", err))
 	}
 
-	err = pinIt(file)
+	err = pinIt(file, pump.NewProgressWriter())
 	if err != nil {
 		log.Fatal(fmt.Errorf("error performing pinning: %w", err))
 	}
 }
 
-func pinIt(file *os.File) error {
+func pinIt(file *os.File, progressWriter pump.ProgressWriter) error {
 	pinChan := make(chan ds.Key, *worker)
 	errChan := make(chan error)
 	drainPin, err := pump.NewPinDrain(*apiURL)
@@ -75,11 +75,15 @@ func pinIt(file *os.File) error {
 	scanner := bufio.NewScanner(file)
 	// optionally, resize scanner's capacity for lines over 64K, see next example
 	for scanner.Scan() {
-		pinChan <- ds.NewKey(scanner.Text())
+		key := ds.NewKey(scanner.Text())
+		progressWriter.Increment()
+		progressWriter.Prefix(key.BaseNamespace())
+		pinChan <- key
 	}
 	close(pinChan)
 	go func() {
 		wgPin.Wait()
+		progressWriter.Finish()
 		close(errChan)
 	}()
 
