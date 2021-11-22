@@ -15,13 +15,16 @@ type badgerEnum struct {
 
 func NewBadgerEnumerator(path string) (Enumerator, error) {
 	opts := badger.DefaultOptions
+	// Readonly because we need enumerator and collector to have access to it
 	opts.Options.ReadOnly = true
-	ds, err := badger.NewDatastore(path, &opts)
+	// Completely disable GC because of ReadOnly access
+	opts.GcInterval = 0
+	datastore, err := badger.NewDatastore(path, &opts)
 	if err != nil {
 		return nil, errors.Wrap(err, "Badger enumerator")
 	}
 
-	return &badgerEnum{ds}, nil
+	return &badgerEnum{datastore}, nil
 }
 
 func (*badgerEnum) TotalCount() int {

@@ -20,7 +20,7 @@ func (d *DatastoreCollector) Blocks(in <-chan BlockInfo, out chan<- Block) error
 		for info := range in {
 			data, err := d.dstore.Get(info.Key)
 			if err != nil {
-				out <- Block{Key: info.Key, Error: errors.Wrap(err, "datastore collector")}
+				out <- Block{Key: info.Key, Error: errors.Wrap(err, "badger datastore collector")}
 				continue
 			}
 

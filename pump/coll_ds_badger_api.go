@@ -14,13 +14,16 @@ type badgerPinCollector struct {
 
 func NewBadgerPinCollector(path string) (Collector, error) {
 	opts := badger.DefaultOptions
+	// Readonly because we need enumerator and collector to have access to it
 	opts.Options.ReadOnly = true
-	ds, err := badger.NewDatastore(path, &opts)
+	// Completely disable GC because of ReadOnly access
+	opts.GcInterval = 0
+	datastore, err := badger.NewDatastore(path, &opts)
 	if err != nil {
-		return nil, errors.Wrap(err, "Badger collector")
+		return nil, errors.Wrap(err, "Badger PINs collector")
 	}
 
-	return &badgerPinCollector{ds}, nil
+	return &badgerPinCollector{datastore}, nil
 }
 
 func (d *badgerPinCollector) Blocks(in <-chan BlockInfo, out chan<- Block) error {
@@ -28,7 +31,7 @@ func (d *badgerPinCollector) Blocks(in <-chan BlockInfo, out chan<- Block) error
 		for info := range in {
 			data, err := d.dstore.Get(info.Key)
 			if err != nil {
-				out <- Block{Key: info.Key, Error: errors.Wrap(err, "datastore collector")}
+				out <- Block{Key: info.Key, Error: errors.Wrap(err, "badger datastore PINs collector")}
 				continue
 			}
 
