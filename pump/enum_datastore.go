@@ -11,11 +11,16 @@ import (
 var _ Enumerator = &DatastoreEnumerator{}
 
 type DatastoreEnumerator struct {
-	dstore ds.Datastore
+	dstore    ds.Datastore
+	keyPrefix string
 }
 
-func NewDatastoreEnumerator(dstore ds.Datastore) *DatastoreEnumerator {
-	return &DatastoreEnumerator{dstore: dstore}
+func NewDatastoreEnumerator(dstore ds.Datastore, prefix ...string) *DatastoreEnumerator {
+	pref := ""
+	if len(prefix) >= 1 {
+		pref = prefix[0]
+	}
+	return &DatastoreEnumerator{dstore: dstore, keyPrefix: pref}
 }
 
 func (*DatastoreEnumerator) TotalCount() int {
@@ -24,9 +29,12 @@ func (*DatastoreEnumerator) TotalCount() int {
 
 func (d *DatastoreEnumerator) Keys(out chan<- BlockInfo) error {
 	// based on https://github.com/ipfs/go-ipfs-blockstore/blob/master/blockstore.go
-
 	// KeysOnly, because that would be _a lot_ of data.
 	q := dsq.Query{KeysOnly: true}
+	if len(d.keyPrefix) != 0 {
+		q.Prefix = d.keyPrefix
+	}
+
 	res, err := d.dstore.Query(q)
 	if err != nil {
 		return errors.Wrap(err, "datastore enumerator")
@@ -49,7 +57,8 @@ func (d *DatastoreEnumerator) Keys(out chan<- BlockInfo) error {
 			}
 
 			out <- BlockInfo{
-				Key: ds.RawKey(e.Key),
+				Key:   ds.RawKey(e.Key),
+				Entry: e.Entry,
 			}
 		}
 	}()
